@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -68,14 +69,22 @@ func Test_merge(t *testing.T) {
 			out := merge(tt.merging()...)
 
 			var got []int
-			for v := range out {
-				got = append(got, v)
+			timeout := time.After(2 * time.Second) // даем 2 секунды
+
+		loop:
+			for {
+				select {
+				case v, ok := <-out:
+					if !ok {
+						break loop
+					}
+					got = append(got, v)
+				case <-timeout:
+					t.Fatal("тест завис: канал не закрылся за 2 секунды")
+				}
 			}
 
 			assert.ElementsMatch(t, tt.want, got)
-
-			_, ok := <-out
-			assert.Falsef(t, ok, "expected channel to be closed")
 		})
 	}
 }
